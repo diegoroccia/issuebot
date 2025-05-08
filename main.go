@@ -3,13 +3,31 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 )
 
 var (
-	appID          = int64(1252582)      // replace with your GitHub App ID
-	installationID = int64(0)            // populated dynamically per webhook
-	privateKeyPath = "./private-key.pem" // path to your GitHub App private key
+	appID          int64
+	installationID int64 // remain dynamically set in webhook
+	privateKeyPath string
 )
+
+func init() {
+	// Fetch values from environment variables
+	var err error
+
+	appIDEnv := os.Getenv("APP_ID")
+	appID, err = strconv.ParseInt(appIDEnv, 10, 64)
+	if err != nil {
+		log.Fatalf("Error parsing APP_ID: %v", err)
+	}
+
+	privateKeyPath = os.Getenv("PRIVATE_KEY_PATH")
+	if privateKeyPath == "" {
+		log.Fatalf("PRIVATE_KEY_PATH environment variable is not set")
+	}
+}
 
 func main() {
 	go runScheduledJobs() // Start scheduler in background
