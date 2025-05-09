@@ -8,9 +8,10 @@ import (
 )
 
 var (
-	appID          int64
-	installationID int64 // remain dynamically set in webhook
-	privateKeyPath string
+	appID               int64
+	installationID      int64 // remain dynamically set in webhook
+	privateKeyPath      string
+	githubWebhookSecret string
 )
 
 func init() {
@@ -27,12 +28,17 @@ func init() {
 	if privateKeyPath == "" {
 		log.Fatalf("PRIVATE_KEY_PATH environment variable is not set")
 	}
+
+	githubWebhookSecret = os.Getenv("GITHUB_WEBHOOK_SECRET")
+	if githubWebhookSecret == "" {
+		log.Fatalf("GITHUB_WEBHOOK_SECRET environment variable is not set")
+	}
 }
 
 func main() {
 	go runScheduledJobs() // Start scheduler in background
 
 	http.HandleFunc("/webhook", handleWebhook)
-	log.Println("Listening on :3000")
+	log.Println("Listening on :8080")
 	http.ListenAndServe(":8080", nil)
 }

@@ -64,8 +64,11 @@ func fetchRulesFromRepo(owner, repo string) []Rule {
 	client = github.NewClient(&http.Client{Transport: itrInstall})
 
 	ctx := context.Background()
+
+	// TODO: make the branch configurable - or check the default branch
 	opt := &github.RepositoryContentGetOptions{Ref: "main"}
-	_, files, _, err := client.Repositories.GetContents(ctx, owner, repo, ".github/zbot", opt)
+
+	_, files, _, err := client.Repositories.GetContents(ctx, owner, repo, ".github/issuebot", opt)
 	if err != nil {
 		log.Println("Failed to get rules directory:", err)
 		return nil

@@ -1,15 +1,17 @@
 package main
 
 import (
-	"github.com/google/go-github/v60/github"
-	"github.com/yuin/gopher-lua"
 	"log"
 	"net/http"
-	"os"
+	"net/url"
+	"strconv"
+
+	"github.com/google/go-github/v60/github"
+	"github.com/yuin/gopher-lua"
 )
 
 func handleWebhook(w http.ResponseWriter, r *http.Request) {
-	payload, err := github.ValidatePayload(r, []byte(os.Getenv("GITHUB_WEBHOOK_SECRET")))
+	payload, err := github.ValidatePayload(r, []byte(githubWebhookSecret))
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -79,11 +81,50 @@ func exposeEvent(L *lua.LState, event any) {
 		if e.Comment != nil {
 			tbl.RawSetString("comment", lua.LString(e.Comment.GetBody()))
 		}
+		if len(e.Issue.Labels) > 0 {
+			var labels lua.LTable
+			for _, label := range e.Issue.Labels {
+				labels.Append(lua.LString(label.GetName()))
+			}
+			tbl.RawSetString("labels", &labels)
+		}
 	case *github.ProjectCardEvent:
 		tbl.RawSetString("type", lua.LString("project_card:moved"))
 		if e.ProjectCard != nil {
 			tbl.RawSetString("new_column", lua.LString(e.ProjectCard.GetColumnName()))
 		}
+		// Extract content URL and parse it
+		if e.ProjectCard.ContentURL != nil {
+			contentURL := *e.ProjectCard.ContentURL
+			u, err := url.Parse(contentURL)
+			if err != nil {
+				log.Fatalf("Error parsing content URL: %v", err)
+			}
+
+			// Example URL format: https://api.github.com/repos/{owner}/{repo}/issues/{issue_number}
+			pathParts := splitPath(u.Path) if len(pathParts) < 5 || pathParts[3] != "issues" {
+				log.Fatalf("Content URL does not point to an issue: %s", contentURL)
+			}
+
+			owner := pathParts[1]
+			repo := pathParts[2]
+			issueNumber, err := strconv.Atoi(pathParts[4])
+			if err != nil {
+				log.Fatalf("Error converting issue number: %v", err)
+			}
+
+			// Get the issue
+			issue, _, err := client.Issues.Get(ctx, owner, repo, issueNumber)
+			if err != nil {
+				log.Fatalf("Error fetching issue: %v", err)
+			}
+
+			fmt.Printf("Issue Title: %s\n", *issue.Title)
+			fmt.Printf("Issue Body: %s\n", *issue.Body)
+		} else {
+			log.Println("No associated issue found for the project card.")
+		}
+
 	default:
 		tbl.RawSetString("type", lua.LString("unknown"))
 	}
